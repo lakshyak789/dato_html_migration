@@ -29,8 +29,6 @@ export default async function convertHtmlArticles(client: Client) {
       convertImgsToBlocks(client, modelIds)
     );
 
-    console.log("content image block", structuredTextContent);
-
     await client.items.update(record.id, {
       structured_text_body: structuredTextContent,
     });
