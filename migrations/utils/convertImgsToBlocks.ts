@@ -2,20 +2,20 @@ import {
   buildBlockRecord,
   Client,
   SimpleSchemaTypes,
-} from '@datocms/cli/lib/cma-client-node';
-import { visit, find } from 'unist-utils-core';
+} from "@datocms/cli/lib/cma-client-node";
+import { visit, find } from "unist-utils-core";
 import {
   HastNode,
   HastElementNode,
   CreateNodeFunction,
   Context,
-} from 'datocms-html-to-structured-text';
-import { Options } from 'datocms-html-to-structured-text';
-import findOrCreateUploadWithUrl from './findOrCreateUploadWithUrl';
+} from "datocms-html-to-structured-text";
+import { Options } from "datocms-html-to-structured-text";
+import findOrCreateUploadWithUrl from "./findOrCreateUploadWithUrl";
 
 export default function convertImgsToBlocks(
   client: Client,
-  modelIds: Record<string, SimpleSchemaTypes.ItemType>,
+  modelIds: Record<string, SimpleSchemaTypes.ItemType>
 ): Options {
   return {
     preprocess: (tree: HastNode) => {
@@ -24,16 +24,16 @@ export default function convertImgsToBlocks(
       const body = find(
         tree,
         (node: HastNode) =>
-          (node.type === 'element' && node.tagName === 'body') ||
-          node.type === 'root',
+          (node.type === "element" && node.tagName === "body") ||
+          node.type === "root"
       );
 
       visit<HastNode, HastElementNode & { children: HastNode[] }>(
         body,
         (node, index, parents) => {
           if (
-            node.type !== 'element' ||
-            node.tagName !== 'img' ||
+            node.type !== "element" ||
+            node.tagName !== "img" ||
             liftedImages.has(node) ||
             parents.length === 1
           ) {
@@ -78,11 +78,11 @@ export default function convertImgsToBlocks(
               splitChildrenIndex -= 1;
               parentsParent.children.splice(
                 nodeInserted ? splitChildrenIndex - 1 : splitChildrenIndex,
-                1,
+                1
               );
             }
           }
-        },
+        }
       );
     },
     // now that images are top-level, convert them into `block` dast nodes
@@ -90,18 +90,18 @@ export default function convertImgsToBlocks(
       img: async (
         createNode: CreateNodeFunction,
         node: HastNode,
-        _context: Context,
+        _context: Context
       ) => {
-        if (node.type !== 'element' || !node.properties) {
+        if (node.type !== "element" || !node.properties) {
           return;
         }
 
         const { src: url } = node.properties;
         const upload = await findOrCreateUploadWithUrl(client, url);
 
-        return createNode('block', {
+        return createNode("block", {
           item: buildBlockRecord({
-            item_type: { id: modelIds.image_block.id, type: 'item_type' },
+            item_type: { id: modelIds.single_image.id, type: "item_type" },
             image: {
               upload_id: upload.id,
             },
