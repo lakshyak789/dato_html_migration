@@ -1,12 +1,12 @@
-import { Client } from '@datocms/cli/lib/cma-client-node';
+import { Client } from "@datocms/cli/lib/cma-client-node";
 
 export default async function getAllRecords(
   client: Client,
-  modelApiKey: string,
+  modelApiKey: string
 ) {
   const records = await client.items.list({
-    filter: { type: modelApiKey },
-    nested: 'true',
+    filter: { ids: `191087830,191349897` },
+    nested: "true",
   });
   console.log(`Found ${records.length} records!`);
   return records;

@@ -14,10 +14,18 @@ type HtmlArticleType = SimpleSchemaTypes.Item & {
 export default async function convertHtmlArticles(client: Client) {
   const modelIds = await getModelIdsByApiKey(client);
 
-  await createStructuredTextFieldFrom(client, "test_article", "body", [
-    modelIds.single_image.id,
-  ]);
-
+  try {
+    await createStructuredTextFieldFrom(client, "test_article", "body", [
+      modelIds.single_image.id,
+    ]);
+  } catch (err: any) {
+    if (err.response?.status === 422) {
+      console.log(
+        "field already exists but it is fine for us lets continue with the code",
+        err
+      );
+    }
+  }
   const records = (await getAllRecords(
     client,
     "test_article"
@@ -36,6 +44,13 @@ export default async function convertHtmlArticles(client: Client) {
       await client.items.publish(record.id);
     }
   }
-
-  await swapFields(client, "test_article", "body");
+  //right now we do not need this code because we are not deleting the old field
+  // try {
+  //   await swapFields(client, "test_article", "body");
+  // } catch (err) {
+  //   console.log(
+  //     "most probably fields already exist but it is fine for us no need to halt the code ",
+  //     err
+  //   );
+  // }
 }
