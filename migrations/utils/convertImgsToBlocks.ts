@@ -34,12 +34,13 @@ export default function convertImgsToBlocks(
           if (
             node.type !== "element" ||
             (node.tagName !== "iframe" &&
-              node.tagName !== "img" &&
+              (node.tagName !== "img" &&
+              node.tagName !== "a" &&
               node.tagName !== "p" &&
               node.tagName !== "code") ||
             liftedImages.has(node) ||
             parents.length === 1
-          ) {
+          )) {
             return;
           }
 
@@ -68,7 +69,28 @@ export default function convertImgsToBlocks(
               return;
             }
           }
-
+          else if (
+            node.tagName === "a" &&
+            !node.children
+          ) {
+            console.log("ignored a node = " + JSON.stringify(node));
+            return;
+          }
+          else if (
+            node.tagName === "a" &&
+            node.children &&
+            node.children.length > 0 &&
+            node.properties &&
+            node.children[0].type === "element" &&
+            node.children[0].tagName === "img" &&
+            node.children[0].properties
+          ) {
+            console.log("lifted a node = " + JSON.stringify(node));
+            node.tagName = "anchorbanner"
+            node.children[0].tagName = "banner"
+            liftedImages.add(node);
+          }
+          // throw new Error("halt")
           const imgParent = parents[parents.length - 1];
           imgParent.children.splice(index, 1);
 
@@ -113,9 +135,65 @@ export default function convertImgsToBlocks(
           }
         }
       );
+      // console.log("liftedImages JSON = " + JSON.stringify(liftedImages))
+      // console.log("liftedImages = " + liftedImages)
     },
     // now that images are top-level, convert them into `block` dast nodes
     handlers: {
+      anchorbanner: async (
+        createNode: CreateNodeFunction,
+        node: HastNode,
+        _context: Context
+      ) => {
+
+        console.log("aaa node = " + JSON.stringify(node));
+
+        if (node.type !== "element" || !node.properties || !node.children || node.children.length === 0) {
+          console.log("handler ignored a node 1 = " + JSON.stringify(node));
+          return;
+        }
+        // return if anchor tag doesn't have any image.
+        if (node.children &&
+          node.properties &&
+          (node.children[0].type !== "element" ||
+            node.children[0].tagName !== "banner")
+        ) {
+          console.log("handler ignored a node 2 = " + JSON.stringify(node));
+          return;
+        }
+        // console.log( "a node = " + node)
+        console.log("a node = " + JSON.stringify(node));
+
+        const { href: url01 } = node.properties;
+        console.log("href is = " + url01);
+        let upload: any
+
+        if (
+          node.tagName === "anchorbanner" &&
+          node.children &&
+          node.children.length > 0 &&
+          node.properties &&
+          node.children[0].type === "element" &&
+          node.children[0].tagName === "banner" &&
+          node.children[0].properties
+        ) {
+          const { src: url } = node.children[0].properties;
+          // url is image property. so unable to take it from <a>
+          upload = await findOrCreateUploadWithUrl(client, url);
+          console.log(" matched node is = " + JSON.stringify(node));
+          console.log(" src is = " + url);
+        }
+
+        return createNode("block", {
+          item: buildBlockRecord({
+            item_type: { id: modelIds.ad_image_banner.id, type: "item_type" },
+            image: {
+              upload_id: upload.id,
+            },
+            link_url: url01
+          }),
+        });
+      },
       img: async (
         createNode: CreateNodeFunction,
         node: HastNode,
@@ -124,6 +202,8 @@ export default function convertImgsToBlocks(
         if (node.type !== "element" || !node.properties) {
           return;
         }
+
+        console.log("img node = " + JSON.stringify(node));
 
         const { src: url } = node.properties;
         const upload = await findOrCreateUploadWithUrl(client, url);
