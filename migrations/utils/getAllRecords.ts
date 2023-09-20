@@ -5,9 +5,11 @@ export default async function getAllRecords(
   modelApiKey: string
 ) {
   const records = await client.items.list({
-    filter: { ids: `191087830,191349897` },
+    filter: { ids: `49207969` },
     nested: "true",
   });
-  console.log(`Found ${records.length} records!`);
+  console.log(`Found  records!`, JSON.stringify(records, null, "\t"));
+
+  // throw new Error("halt");
   return records;
 }

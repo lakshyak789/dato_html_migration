@@ -36,11 +36,33 @@ export default function convertImgsToBlocks(
             (node.tagName !== "iframe" &&
               node.tagName !== "img" &&
               node.tagName !== "p" &&
-              node.tagName !== "code") ||
+              node.tagName !== "code" &&
+              node.tagName !== "a") ||
             liftedImages.has(node) ||
             parents.length === 1
           ) {
             return;
+          }
+
+          if (node.tagName === "a") {
+            console.log("node", JSON.stringify(node));
+
+            if (
+              node.children &&
+              node.children.length > 0 &&
+              node.properties &&
+              node.children[0].type === "element" &&
+              node.children[0].tagName === "img" &&
+              node.children[0].properties
+            ) {
+              // const { src } = node.children[0].properties;
+              // Object.assign(node.properties, { rel: src });
+              liftedImages.add(node.children[0]);
+            } else {
+              return;
+            }
+
+            // throw new Error("tets");
           }
 
           if (node.tagName === "p" && node.type === "element") {
@@ -57,18 +79,46 @@ export default function convertImgsToBlocks(
             }
 
             if (
-              child.value.includes("[pullquote]") ||
               child.value.includes("[SadhguruSignature") ||
               child.value.includes("[ SadhguruSignature") ||
-              child.value.includes("[/button]")
+              child.value.includes("[/button]") ||
+              child.value.includes("[youtube]") ||
+              child.value.includes("[/image]")
             ) {
               node.tagName = "code";
               return index;
+            } else if (child.value.includes("[pullquote]")) {
+              child.value = child.value.replace("[pullquote]", "");
+              child.value = child.value.replace("[/pullquote]", "");
+              return;
+            } else if (child.value.includes("[readmore]")) {
+              child.value = child.value.replace("[readmore]", "");
+              child.value = child.value.replace("[/readmore]", "");
+              return;
+            } else if (child.value.includes("[caption]")) {
+              child.value = child.value.replace("[caption]", "");
+              child.value = child.value.replace("[/caption]", "");
+              return;
+            } else if (child.value.includes("[question]")) {
+              child.value = child.value.replace("[question]", "");
+              child.value = child.value.replace("[/question]", "");
+              return;
             } else {
               return;
             }
           }
 
+          console.log(
+            "this is body =",
+            JSON.stringify(body, null, "\t"),
+            "node =",
+            JSON.stringify(node, null, "\t"),
+            "index =",
+            JSON.stringify(index, null, "\t"),
+            "children =",
+            JSON.stringify(parents, null, "\t")
+          );
+          // throw new Error("this is a man made error");
           const imgParent = parents[parents.length - 1];
           imgParent.children.splice(index, 1);
 
@@ -116,7 +166,52 @@ export default function convertImgsToBlocks(
     },
     // now that images are top-level, convert them into `block` dast nodes
     handlers: {
+      a: async (
+        createNode: CreateNodeFunction,
+        node: HastNode,
+        _context: Context
+      ) => {
+        // if (node.type !== "element" || !node.properties) {
+        //   return;
+        // }
+
+        console.log("this is node", JSON.stringify(node));
+        // throw new Error("this is not");
+
+        // const { src: url } = node.properties;
+        // const upload = await findOrCreateUploadWithUrl(client, url);
+
+        // return createNode("block", {
+        //   item: buildBlockRecord({
+        //     item_type: { id: modelIds.image_block.id, type: "item_type" },
+        //     image: {
+        //       upload_id: upload.id,
+        //     },
+        //   }),
+        // });
+      },
       img: async (
+        createNode: CreateNodeFunction,
+        node: HastNode,
+        _context: Context
+      ) => {
+        if (node.type !== "element" || !node.properties) {
+          return;
+        }
+
+        const { src: url } = node.properties;
+        const upload = await findOrCreateUploadWithUrl(client, url);
+
+        return createNode("block", {
+          item: buildBlockRecord({
+            item_type: { id: modelIds.image_block.id, type: "item_type" },
+            image: {
+              upload_id: upload.id,
+            },
+          }),
+        });
+      },
+      video: async (
         createNode: CreateNodeFunction,
         node: HastNode,
         _context: Context
@@ -202,6 +297,10 @@ export default function convertImgsToBlocks(
             condition = "sadhguru_signature_love_grace";
           } else if (child.value.includes("[/button]")) {
             condition = "simple_button";
+          } else if (child.value.includes("[/youtube]")) {
+            condition = "youtube";
+          } else if (child.value.includes("[/image]")) {
+            condition = "image";
           } else {
             condition = "";
           }
@@ -220,12 +319,12 @@ export default function convertImgsToBlocks(
         switch (condition) {
           case "simple_button":
             console.log("node in simple_button", node);
-            let regex = /(?:https?|ftp):\/\/[\n\S]+/g;
+            let regex = /src="([^"]+)"/;
 
             let matches = child.value.match(regex);
             if (!matches) return;
-            let url = matches[0].replace(/(^\.+|\]+$)/gm, "");
-            url = url.replace('^"|"$', "");
+            let url = matches[1];
+
             let button_text = child.value.substring(
               child.value.indexOf("]") + 1,
               child.value.indexOf("[/button]")
@@ -238,25 +337,48 @@ export default function convertImgsToBlocks(
                 link_url: url,
               }),
             });
-          case "add_image_banner":
+          case "youtube":
+            const regex_youtube = /\[youtube\](.*?)\[\/youtube\]/;
+            const match: any = child.value.match(regex_youtube);
+
+            if (!match) {
+              return;
+            }
+            const yt_url = match[1];
+            const details: any = urlParser.parse(yt_url);
+            const video_thumbnail = `https://img.youtube.com/vi/${details.id}/0.jpg`;
             return createNode("block", {
               item: buildBlockRecord({
                 item_type: {
-                  id: modelIds.add_image_banner.id,
+                  id: modelIds.media_embed_v2.id,
                   type: "item_type",
                 },
-                url: {},
+                video: {
+                  url: yt_url,
+                  width: 200,
+                  height: 113,
+                  provider: details.provider,
+                  provider_uid: details.id,
+                  thumbnail_url: video_thumbnail,
+                  title: "test title",
+                },
               }),
             });
 
-          case "newsletter_block":
+          case "image":
+            const src_regex = /src=(\S+)/;
+            const src_match: any = child.value.match(src_regex);
+            if (!src_match) return;
+            const src_value = src_match[1];
+
+            const upload = await findOrCreateUploadWithUrl(client, src_value);
+
             return createNode("block", {
               item: buildBlockRecord({
-                item_type: {
-                  id: modelIds.newsletter_block.id,
-                  type: "item_type",
+                item_type: { id: modelIds.image_block.id, type: "item_type" },
+                image: {
+                  upload_id: upload.id,
                 },
-                url: {},
               }),
             });
 
