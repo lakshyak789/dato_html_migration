@@ -204,7 +204,7 @@ export default function convertImgsToBlocks(
 
         return createNode("block", {
           item: buildBlockRecord({
-            item_type: { id: modelIds.image_block.id, type: "item_type" },
+            item_type: { id: modelIds.single_image.id, type: "item_type" },
             image: {
               upload_id: upload.id,
             },
@@ -225,7 +225,7 @@ export default function convertImgsToBlocks(
 
         return createNode("block", {
           item: buildBlockRecord({
-            item_type: { id: modelIds.image_block.id, type: "item_type" },
+            item_type: { id: modelIds.single_image.id, type: "item_type" },
             image: {
               upload_id: upload.id,
             },
