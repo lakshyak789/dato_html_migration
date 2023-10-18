@@ -37,16 +37,21 @@ export default function convertImgsToBlocks(
               node.tagName !== "img" &&
               node.tagName !== "a" &&
               node.tagName !== "p" &&
+              node.tagName !== "em" &&
+              node.tagName !== "table" &&
               node.tagName !== "code" &&
               node.tagName !== "a") ||
             liftedImages.has(node) ||
             parents.length === 1
           ) {
+            // console.log("unhandled node = " + JSON.stringify(node));
             return;
+          }
+          if (node.tagName === "table") {
+            console.log("*** Log *** - unhandled html table");
           }
 
           if (node.tagName === "a") {
-            console.log("node", JSON.stringify(node));
 
             if (
               node.children &&
@@ -56,21 +61,43 @@ export default function convertImgsToBlocks(
               node.children[0].tagName === "img" &&
               node.children[0].properties
             ) {
-              // const { src } = node.children[0].properties;
-              // Object.assign(node.properties, { rel: src });
               liftedImages.add(node.children[0]);
             } else {
               return;
             }
-
-            // throw new Error("tets");
           }
-
-          if (node.tagName === "p" && node.type === "element") {
+          if (node.tagName === "em" && node.type === "element") {
+            console.log(" all em nodes = " + JSON.stringify(node));
             if (
               !node.children ||
               node.children.length === 0 ||
-              node.children[0].type !== "text"
+              node.children[0].type !== "element" 
+            ) {
+              return;
+            }
+            let node_string = JSON.stringify(node)
+            if (node.tagName == "em" && JSON.stringify(node).includes("Editor’s Note")) {
+              console.log("Alert!!! *** Index = " + index + "has editors note");
+              node.children.unshift(
+                {
+                  "type": "element",
+                  "tagName": "hr",
+                  "properties": {},
+                  "children": [
+                  ]
+                }
+              )
+              console.log("editor node value = " + JSON.stringify(node));
+            }
+          }
+          
+
+          if (node.tagName === "p" && node.type === "element")
+           {
+            if (
+              !node.children ||
+              node.children.length === 0 ||
+              node.children[0].type !== "text" 
             ) {
               return;
             }
@@ -104,11 +131,16 @@ export default function convertImgsToBlocks(
               child.value = child.value.replace("[question]", "");
               child.value = child.value.replace("[/question]", "");
               return;
+            } else if (child.value.includes("[divider]")) {
+              node.tagName = "hr"
+              return;
+            } else if (child.value.includes("[poem")) {
+              console.log("*** Log *** - poem retained as is")
+              return;
             } else {
               return;
             }
           } else if (node.tagName === "a" && !node.children) {
-            console.log("ignored a node = " + JSON.stringify(node));
             return;
           } else if (
             node.tagName === "a" &&
@@ -119,12 +151,10 @@ export default function convertImgsToBlocks(
             node.children[0].tagName === "img" &&
             node.children[0].properties
           ) {
-            console.log("lifted a node = " + JSON.stringify(node));
             node.tagName = "anchorbanner";
             node.children[0].tagName = "banner";
             liftedImages.add(node);
           }
-          // throw new Error("halt")
           const imgParent = parents[parents.length - 1];
           imgParent.children.splice(index, 1);
 
@@ -169,8 +199,6 @@ export default function convertImgsToBlocks(
           }
         }
       );
-      // console.log("liftedImages JSON = " + JSON.stringify(liftedImages))
-      // console.log("liftedImages = " + liftedImages)
     },
     // now that images are top-level, convert them into `block` dast nodes
     handlers: {
@@ -179,15 +207,12 @@ export default function convertImgsToBlocks(
         node: HastNode,
         _context: Context
       ) => {
-        console.log("aaa node = " + JSON.stringify(node));
-
         if (
           node.type !== "element" ||
           !node.properties ||
           !node.children ||
           node.children.length === 0
         ) {
-          console.log("handler ignored a node 1 = " + JSON.stringify(node));
           return;
         }
         // return if anchor tag doesn't have any image.
@@ -197,14 +222,9 @@ export default function convertImgsToBlocks(
           (node.children[0].type !== "element" ||
             node.children[0].tagName !== "banner")
         ) {
-          console.log("handler ignored a node 2 = " + JSON.stringify(node));
           return;
         }
-        // console.log( "a node = " + node)
-        console.log("a node = " + JSON.stringify(node));
-
         const { href: url01 } = node.properties;
-        console.log("href is = " + url01);
         let upload: any;
 
         if (
@@ -217,10 +237,7 @@ export default function convertImgsToBlocks(
           node.children[0].properties
         ) {
           const { src: url } = node.children[0].properties;
-          // url is image property. so unable to take it from <a>
           upload = await findOrCreateUploadWithUrl(client, url);
-          console.log(" matched node is = " + JSON.stringify(node));
-          console.log(" src is = " + url);
         }
 
         return createNode("block", {
@@ -228,6 +245,8 @@ export default function convertImgsToBlocks(
             item_type: { id: modelIds.ad_image_banner.id, type: "item_type" },
             image: {
               upload_id: upload.id,
+              alt: upload.alt ?? "",
+              title: upload.title ?? "",
             },
             link_url: url01,
           }),
@@ -241,10 +260,7 @@ export default function convertImgsToBlocks(
         if (node.type !== "element" || !node.properties) {
           return;
         }
-
-        console.log("img node = " + JSON.stringify(node));
-
-        const { src: url } = node.properties;
+        const { src: url, alt: img_alt, title: img_title } = node.properties;
         const upload = await findOrCreateUploadWithUrl(client, url);
 
         return createNode("block", {
@@ -252,6 +268,8 @@ export default function convertImgsToBlocks(
             item_type: { id: modelIds.single_image.id, type: "item_type" },
             image: {
               upload_id: upload.id,
+              alt: img_alt ?? "",
+              title: img_title ?? "",
             },
           }),
         });
@@ -295,7 +313,7 @@ export default function convertImgsToBlocks(
         } else if (details.provider == "vimeo") {
           video_thumbnail = `https://vumbnail.com/${details.id}.jpg`;
         }
-        return createNode("block", {
+        const resp = createNode("block", {
           item: buildBlockRecord({
             item_type: { id: modelIds.media_embed_v2.id, type: "item_type" },
             video: {
@@ -309,6 +327,8 @@ export default function convertImgsToBlocks(
             },
           }),
         });
+        console.log("*** Log *** - media_embed_v2 created successfully");
+        return resp;
       },
       code: async (
         createNode: CreateNodeFunction,
@@ -316,9 +336,11 @@ export default function convertImgsToBlocks(
         _context: Context
       ) => {
         let condition = "";
+
         if (node.type !== "element" || !node.children) {
           return;
         }
+
         if (
           node.type === "element" &&
           node.children &&
@@ -363,8 +385,8 @@ export default function convertImgsToBlocks(
 
         switch (condition) {
           case "simple_button":
-            console.log("node in simple_button", node);
-            let regex = /src="([^"]+)"/;
+            // let regex = /src="([^"]+)"/;
+            let regex = /src\s*=\s*['"]?([^'"\s>]+)/;
 
             let matches = child.value.match(regex);
             if (!matches) return;
@@ -392,7 +414,7 @@ export default function convertImgsToBlocks(
             const yt_url = match[1];
             const details: any = urlParser.parse(yt_url);
             const video_thumbnail = `https://img.youtube.com/vi/${details.id}/0.jpg`;
-            return createNode("block", {
+            const resp = createNode("block", {
               item: buildBlockRecord({
                 item_type: {
                   id: modelIds.media_embed_v2.id,
@@ -408,21 +430,33 @@ export default function convertImgsToBlocks(
                   title: "test title",
                 },
               }),
-            });
+            })
+            console.log("*** Log *** - Youtube media_embed_v2 created successfully");
+            return resp;
 
           case "image":
-            const src_regex = /src=(\S+)/;
+            const src_regex = /src\s*=\s*['"]?([^'"\s>]+)/;
+            const alt_regex = /alt\s*=\s*['"]?([^'"\s>]+)/;
+            const title_regex = /title\s*=\s*['"]?([^'"\s>]+)/;
             const src_match: any = child.value.match(src_regex);
+            const alt_match: any = child.value.match(alt_regex);
+            const title_match: any = child.value.match(title_regex);
+
             if (!src_match) return;
             const src_value = src_match[1];
+            const alt_value: any = ((alt_match != null) && (alt_match != undefined)) ? alt_match[1] : "";
+            const title_value: any = ((title_match != null) && (title_match != undefined)) ? title_match[1] : "";
 
             const upload = await findOrCreateUploadWithUrl(client, src_value);
 
             return createNode("block", {
               item: buildBlockRecord({
-                item_type: { id: modelIds.image_block.id, type: "item_type" },
+                // item_type: { id: modelIds.image_block.id, type: "item_type" },
+                item_type: { id: modelIds.single_image.id, type: "item_type" },
                 image: {
                   upload_id: upload.id,
+                  alt: alt_value ?? "",
+                  title: title_value ?? "",
                 },
               }),
             });
