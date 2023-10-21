@@ -38,6 +38,7 @@ export default function convertImgsToBlocks(
               node.tagName !== "a" &&
               node.tagName !== "p" &&
               node.tagName !== "code" &&
+              node.tagName !== "span" &&
               node.tagName !== "a") ||
             liftedImages.has(node) ||
             parents.length === 1
@@ -65,8 +66,11 @@ export default function convertImgsToBlocks(
 
             // throw new Error("tets");
           }
-
-          if (node.tagName === "p" && node.type === "element") {
+          //shortcode reading from paragraph
+          if (
+            node.tagName === "p" ||
+            (node.tagName === "span" && node.type === "element")
+          ) {
             if (
               !node.children ||
               node.children.length === 0 ||
@@ -88,6 +92,52 @@ export default function convertImgsToBlocks(
             ) {
               node.tagName = "code";
               return index;
+            } else if (child.value.includes("[seprator]")) {
+              // child.value = child.value.replace("[seprator]", "");
+
+              const shortCodeIndex = child.value.indexOf("[seprator]");
+
+              // const splittedArray = child.value.split("[seprator]");
+              console.log("splitted array", shortCodeIndex);
+              // const filteredSplittedArray = splittedArray.filter((n) => n);
+              if (shortCodeIndex === 0) {
+                node.children.push({
+                  type: "element",
+                  tagName: "hr",
+                  properties: {},
+                  children: [],
+                });
+                // throw new Error("this is a first part error");
+              } else if (shortCodeIndex > 0) {
+                node.children.unshift({
+                  type: "element",
+                  tagName: "hr",
+                  properties: {},
+                  children: [],
+                });
+                // throw new Error("this is a first part error");
+              }
+              // else if (filteredSplittedArray.length >= 2)
+
+              console.log(
+                "this is body =",
+                JSON.stringify(body, null, "\t"),
+                "node =",
+                JSON.stringify(node, null, "\t"),
+                "children =",
+                JSON.stringify(child, null, "\t"),
+                "parent =",
+                JSON.stringify(parents, null, "\t"),
+                "parent len =",
+                JSON.stringify(parents.length, null, "\t"),
+                "index=",
+                JSON.stringify(index, null, "\t")
+              );
+
+              // throw new Error("this is a man made error");
+              // child.value = child.value.replace("[seprator]", "");
+              JSON.stringify(node).replace("[seprator]", "");
+              return;
             } else if (child.value.includes("[pullquote]")) {
               child.value = child.value.replace("[pullquote]", "");
               child.value = child.value.replace("[/pullquote]", "");
@@ -331,11 +381,6 @@ export default function convertImgsToBlocks(
           }
 
           if (
-            child.value.includes("[pullquote]") &&
-            child.value.includes("[/pullquote]")
-          ) {
-            condition = "pullquote";
-          } else if (
             child.value.includes("[SadhguruSignature") ||
             child.value.includes("[ SadhguruSignature")
           ) {
@@ -420,7 +465,7 @@ export default function convertImgsToBlocks(
 
             return createNode("block", {
               item: buildBlockRecord({
-                item_type: { id: modelIds.image_block.id, type: "item_type" },
+                item_type: { id: modelIds.single_image.id, type: "item_type" },
                 image: {
                   upload_id: upload.id,
                 },
