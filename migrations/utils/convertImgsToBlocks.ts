@@ -13,6 +13,17 @@ import {
 import { Options } from "datocms-html-to-structured-text";
 import findOrCreateUploadWithUrl from "./findOrCreateUploadWithUrl";
 import urlParser from "js-video-url-parser";
+
+var fs = require('fs');
+var util = require('util');
+var log_file = fs.createWriteStream("/Users/sateeshmanne" + '/debug.log', {flags : 'w'});
+var log_stdout = process.stdout;
+
+console.log = function(d) { //
+  log_file.write(util.format(d) + '\n');
+  log_stdout.write(util.format(d) + '\n');
+};
+
 export default function convertImgsToBlocks(
   client: Client,
   modelIds: Record<string, SimpleSchemaTypes.ItemType>
@@ -44,7 +55,7 @@ export default function convertImgsToBlocks(
             liftedImages.has(node) ||
             parents.length === 1
           ) {
-            // console.log("unhandled node = " + JSON.stringify(node));
+            console.log("unhandled node = " + JSON.stringify(node));
             return;
           }
           if (node.tagName === "table") {
@@ -94,6 +105,7 @@ export default function convertImgsToBlocks(
 
           if (node.tagName === "p" && node.type === "element")
            {
+            console.log("---handling paragraph element---");
             if (
               !node.children ||
               node.children.length === 0 ||
@@ -103,6 +115,7 @@ export default function convertImgsToBlocks(
             }
             let child = node.children[0];
             if (!child.value) {
+              console.log("---no child value found---");
               return;
             }
 
@@ -114,6 +127,7 @@ export default function convertImgsToBlocks(
               child.value.includes("[/image]")
             ) {
               node.tagName = "code";
+              console.log("---tagName set to Code---");
               return index;
             } else if (child.value.includes("[pullquote]")) {
               child.value = child.value.replace("[pullquote]", "");
@@ -261,9 +275,16 @@ export default function convertImgsToBlocks(
           return;
         }
         const { src: url, alt: img_alt, title: img_title } = node.properties;
-        const upload = await findOrCreateUploadWithUrl(client, url);
 
-        return createNode("block", {
+        if (url == "" || url == null || url == undefined) {
+          console.log("img url is not found, aborting block creation", + url);
+        }
+
+        console.log("before calling findorCreate url", + url);
+        const upload = await findOrCreateUploadWithUrl(client, url);
+        console.log("---before img block creation---");
+
+        const resp =  createNode("block", {
           item: buildBlockRecord({
             item_type: { id: modelIds.single_image.id, type: "item_type" },
             image: {
@@ -273,6 +294,8 @@ export default function convertImgsToBlocks(
             },
           }),
         });
+        console.log("---after img block creation---");
+        return resp;
       },
       video: async (
         createNode: CreateNodeFunction,
@@ -286,7 +309,9 @@ export default function convertImgsToBlocks(
         const { src: url } = node.properties;
         const upload = await findOrCreateUploadWithUrl(client, url);
 
-        return createNode("block", {
+        console.log("---before video block creation---");
+
+        const resp =  createNode("block", {
           item: buildBlockRecord({
             item_type: { id: modelIds.single_image.id, type: "item_type" },
             image: {
@@ -294,6 +319,9 @@ export default function convertImgsToBlocks(
             },
           }),
         });
+
+        console.log("---after img block creation---");
+        return resp
       },
       iframe: async (
         createNode: CreateNodeFunction,
@@ -313,6 +341,7 @@ export default function convertImgsToBlocks(
         } else if (details.provider == "vimeo") {
           video_thumbnail = `https://vumbnail.com/${details.id}.jpg`;
         }
+        console.log("---before iframe block creation---");
         const resp = createNode("block", {
           item: buildBlockRecord({
             item_type: { id: modelIds.media_embed_v2.id, type: "item_type" },
@@ -327,6 +356,7 @@ export default function convertImgsToBlocks(
             },
           }),
         });
+        console.log("---after iframe block creation---");
         console.log("*** Log *** - media_embed_v2 created successfully");
         return resp;
       },
@@ -397,13 +427,19 @@ export default function convertImgsToBlocks(
               child.value.indexOf("[/button]")
             );
 
-            return createNode("block", {
+            console.log("---before simple button block creation---");
+
+            const resp1 = createNode("block", {
               item: buildBlockRecord({
                 item_type: { id: modelIds.simple_button.id, type: "item_type" },
                 button_text: button_text,
                 link_url: url,
               }),
             });
+
+            console.log("---after simple button block creation---");
+            return resp1;
+
           case "youtube":
             const regex_youtube = /\[youtube\](.*?)\[\/youtube\]/;
             const match: any = child.value.match(regex_youtube);
@@ -414,6 +450,9 @@ export default function convertImgsToBlocks(
             const yt_url = match[1];
             const details: any = urlParser.parse(yt_url);
             const video_thumbnail = `https://img.youtube.com/vi/${details.id}/0.jpg`;
+
+            console.log("---before youtube block creation---");
+
             const resp = createNode("block", {
               item: buildBlockRecord({
                 item_type: {
@@ -431,6 +470,7 @@ export default function convertImgsToBlocks(
                 },
               }),
             })
+            console.log("---after youtube button block creation---");
             console.log("*** Log *** - Youtube media_embed_v2 created successfully");
             return resp;
 
@@ -449,7 +489,9 @@ export default function convertImgsToBlocks(
 
             const upload = await findOrCreateUploadWithUrl(client, src_value);
 
-            return createNode("block", {
+            console.log("---before case-image block creation---");
+
+            const resp2 =  createNode("block", {
               item: buildBlockRecord({
                 // item_type: { id: modelIds.image_block.id, type: "item_type" },
                 item_type: { id: modelIds.single_image.id, type: "item_type" },
@@ -461,8 +503,12 @@ export default function convertImgsToBlocks(
               }),
             });
 
+            console.log("---after case-image block creation---");
+            return resp2
+
           case "sadhguru_signature_love_grace":
-            return createNode("block", {
+            console.log("---before sadhguru_signature_love_grace block creation---");
+            const resp3 =  createNode("block", {
               item: buildBlockRecord({
                 item_type: {
                   id: modelIds.sadhguru_signature_love_grace.id,
@@ -472,9 +518,12 @@ export default function convertImgsToBlocks(
                 text: "147374130",
               }),
             });
+            console.log("---after sadhguru_signature_love_grace block creation---");
+            return resp3
 
           default:
-            return createNode("paragraph", {
+            console.log("---before default block creation---");
+            const resp4 = createNode("paragraph", {
               type: "paragraph",
               children: [
                 {
@@ -483,6 +532,7 @@ export default function convertImgsToBlocks(
                 },
               ],
             });
+            console.log("---after default block creation---");
         }
       },
     },

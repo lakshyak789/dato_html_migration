@@ -25,13 +25,24 @@ export default async function findOrCreateUploadWithUrl(
     });
 
     upload = matchingUploads.find((u) => {
+      console.log("finding image url = " + url);
       return u.url === url;
     });
   }
 
+  console.log("upload 01 is = ", JSON.stringify(upload));
+  console.log("trying to create url = " + url);
+
+  if ( upload == null || upload == undefined ) {
+    console.log("upload is null or undefined");
+  }
+
   if (!upload) {
+    console.log("created for url" + url)
     upload = await client.uploads.createFromUrl({ url });
   }
+
+  console.log("upload 02 is = " + JSON.stringify(upload));
 
   return upload;
 }
