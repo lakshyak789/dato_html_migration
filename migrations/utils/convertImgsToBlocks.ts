@@ -13,6 +13,7 @@ import {
 import { Options } from "datocms-html-to-structured-text";
 import findOrCreateUploadWithUrl from "./findOrCreateUploadWithUrl";
 import urlParser from "js-video-url-parser";
+
 export default function convertImgsToBlocks(
   client: Client,
   modelIds: Record<string, SimpleSchemaTypes.ItemType>
@@ -88,7 +89,11 @@ export default function convertImgsToBlocks(
               child.value.includes("[ SadhguruSignature") ||
               child.value.includes("[/button]") ||
               child.value.includes("[youtube]") ||
-              child.value.includes("[/image]")
+              child.value.includes("[/image]") ||
+              child.value.includes("[/pullquote]") ||
+              child.value.includes("[quote]") ||
+              child.value.includes("[twitter]") ||
+              child.value.includes("[/SadhguruImage]")
             ) {
               node.tagName = "code";
               return index;
@@ -135,7 +140,7 @@ export default function convertImgsToBlocks(
               );
 
               // throw new Error("this is a man made error");
-              // child.value = child.value.replace("[seprator]", "");
+              child.value = child.value.replace("[seprator]", "");
               JSON.stringify(node).replace("[seprator]", "");
               return;
             } else if (child.value.includes("[pullquote]")) {
@@ -149,6 +154,7 @@ export default function convertImgsToBlocks(
             } else if (child.value.includes("[caption]")) {
               child.value = child.value.replace("[caption]", "");
               child.value = child.value.replace("[/caption]", "");
+
               return;
             } else if (child.value.includes("[question]")) {
               child.value = child.value.replace("[question]", "");
@@ -391,6 +397,15 @@ export default function convertImgsToBlocks(
             condition = "youtube";
           } else if (child.value.includes("[/image]")) {
             condition = "image";
+          } else if (
+            child.value.includes("[/pullquote]") ||
+            child.value.includes("[quote]")
+          ) {
+            condition = "pullquote";
+          } else if (child.value.includes("[twitter]")) {
+            condition = "twitter";
+          } else if (child.value.includes("[/SadhguruImage]")) {
+            condition = "SadhguruImage";
           } else {
             condition = "";
           }
@@ -407,6 +422,92 @@ export default function convertImgsToBlocks(
         }
 
         switch (condition) {
+          case "pullquote":
+            let extractedText: any = child.value.match(
+              /\[pullquote\](.*?)\[\/pullquote\]/
+            );
+            if (extractedText !== null) {
+              extractedText = extractedText[1];
+            } else {
+              return;
+            }
+            // insertLog(
+            //   dato_id,
+            //   "converting pullquoteshortcode to quote block",
+            //   "info"
+            // );
+            return createNode("block", {
+              item: buildBlockRecord({
+                item_type: {
+                  id: modelIds.quote.id,
+                  type: "item_type",
+                },
+
+                quote: extractedText,
+              }),
+            });
+          case "twitter":
+            let matchUrl: RegExpMatchArray | null = child.value.match(
+              /\[twitter\](.*?)\[\/twitter\]/
+            );
+            let twitterValue: string;
+            if (matchUrl) {
+              twitterValue = matchUrl[1];
+              console.log("this is twitter value", twitterValue);
+            } else {
+              console.log("No match found");
+              return;
+            }
+            // throw new Error("Could not find");
+            return createNode("block", {
+              item: buildBlockRecord({
+                item_type: {
+                  id: modelIds.twitter_block.id,
+                  type: "item_type",
+                },
+                tweet_url: new URL(twitterValue),
+              }),
+            });
+
+          case "SadhguruImage":
+            let matchurl: RegExpMatchArray | null = child.value.match(
+              /\[SadhguruImage\](.*?)\[\/SadhguruImage\]/
+            );
+            let sadhguruimageValue: string;
+            if (matchurl) {
+              sadhguruimageValue = matchurl[1];
+              console.log(sadhguruimageValue);
+            } else {
+              console.log("No match found");
+              return;
+            }
+            // throw new Error("Could not find");
+            return createNode("block", {
+              item: buildBlockRecord({
+                item_type: {
+                  id: modelIds.structured_text.id,
+                  type: "item_type",
+                },
+                body: {
+                  schema: "dast",
+                  document: {
+                    children: [
+                      {
+                        children: [
+                          {
+                            type: "span",
+                            value: "test it out",
+                          },
+                        ],
+                        type: "paragraph",
+                      },
+                    ],
+                    type: "root",
+                  },
+                },
+                style: "sg-wisdom-image-at-start",
+              }),
+            });
           case "simple_button":
             console.log("node in simple_button", node);
             let regex = /src="([^"]+)"/;

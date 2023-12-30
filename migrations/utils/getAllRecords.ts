@@ -1,15 +1,32 @@
 import { Client } from "@datocms/cli/lib/cma-client-node";
+import { insertLog } from "../db/db";
 
 export default async function getAllRecords(
   client: Client,
   modelApiKey: string
 ) {
-  const records = await client.items.list({
-    filter: { ids: `191349897` },
-    nested: "true",
-  });
-  console.log(`Found  records!`, JSON.stringify(records, null, "\t"));
+  try {
+    const records = await client.items.list({
+      filter: {
+        ids: "72829742",
+        // ids: "72834142,72958579,74518331,72958656,72958741,72926046,72963198,72963225,72963299,72926414,72926405,74124045,72822178,72926454,74507563,72824367,72941860,72963562,73007698,73007684,72813771,72952054,72827154,72829742,72950396,72650660,72821410,72821450,72963065,72825634,72963124,72963162,72958442,72650913,72941492,72941740,72949930,72650342,72652725,72941461,72649483,72958427,72653050,72650866,72958409,72958192,74518261,72827264,72827571,72650777,72963404,72950455,72832899,72638734,72950501,74507614,21633169,72826556,72649268,72963255,72824221,72652823,72827781,74518248,72958481,72647499,72646346,72923916,72949209,72963028,72826459,72949955,72963194,72958588,74507540,72852868,72958468,72924677,72949321,72950393,72827204,72949223, 72824923,72968011,72825657,72825728,72968239,72968294,72968444,72852340,74505046,72853001,72923281,72827187,72924054,72924101,74518790,72958444,72834123,72834125,72958461",
+      },
+      nested: "true",
+    });
+    console.log(`Found  records!`, JSON.stringify(records, null, "\t"));
+    insertLog(
+      "NONE",
+      "fetched records successfully, FILENAME: getAllRecords",
+      "success"
+    );
 
-  // throw new Error("halt");
-  return records;
+    // throw new Error("halt");
+    return records;
+  } catch (err) {
+    insertLog(
+      "NONE",
+      `fetch records failed, FILENAME: getAllRecords ${err}`,
+      "error"
+    );
+  }
 }
